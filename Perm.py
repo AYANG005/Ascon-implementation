@@ -1,13 +1,13 @@
 def split(s): #split s into 5 64 bit blocks
     y = []
     for i in range(5):
-        y.insert(0,((s >> (i*64)) & 0xFFFFFFFFFFFFFFFF))
+        y.insert(0,((s >> (i*64)) & 0xFFFFFFFFFFFFFFFF)) #shift s by a mult. of 64 then xor with 64 1s.
     return y
 
 def merge(s): #merge 5 64 bit blocks into 1
     y=0
     for i in range(5):
-        y = y ^ (s[4-i] << (i * 64))
+        y = y ^ (s[4-i] << (i * 64)) #starting from last block of s, shift left by mult of 64 then AND iteratively
     return y
 
 def addConstant(y, r, power): #power is a or b, y here is a list containing xis

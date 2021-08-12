@@ -104,21 +104,13 @@ def ascon_process_associated_data(S, b, rate, associateddata):
     associateddata: a bytes object of arbitrary length
     returns nothing, updates S
     """
-    print("Theirs")
 
     if len(associateddata) > 0:
         a_zeros = rate - (len(associateddata) % rate) - 1
         a_padding = to_bytes([0x80] + [0 for i in range(a_zeros)])
         a_padded = associateddata + a_padding
 
-        print("A: ", associateddata)
-        print("A bit length", int.from_bytes(associateddata, "big").bit_length())
-        print("Padding size: ", int.from_bytes(a_padding, "big").bit_length())
-        print("Rate in bits: ",rate*8)
-        print("Padding: ",bin(int.from_bytes(a_padding, "big")))
-        print("Padded A length: ",int.from_bytes(a_padded, "big").bit_length())
-        print("Padded A: ",a_padded)
-        print("Padded A in bin: ",bin(int.from_bytes(a_padded, "big")))
+        #print("Padded A length: ",int.from_bytes(a_padded, "big").bit_length())
 
         for block in range(0, len(a_padded), rate):
             S[0] ^= bytes_to_int(a_padded[block:block+8])
@@ -126,8 +118,8 @@ def ascon_process_associated_data(S, b, rate, associateddata):
                 S[1] ^= bytes_to_int(a_padded[block+8:block+16])
 
             ascon_permutation(S, b)
-
     S[4] ^= 1
+
     if debug: printstate(S, "process associated data:")
 
 
@@ -143,7 +135,6 @@ def ascon_process_plaintext(S, b, rate, plaintext):
     p_lastlen = len(plaintext) % rate
     p_padding = to_bytes([0x80] + (rate-p_lastlen-1)*[0x00])
     p_padded = plaintext + p_padding
-
     # first t-1 blocks
     ciphertext = to_bytes([])
     for block in range(0, len(p_padded) - rate, rate):
@@ -156,12 +147,12 @@ def ascon_process_plaintext(S, b, rate, plaintext):
             ciphertext += (int_to_bytes(S[0], 8) + int_to_bytes(S[1], 8))
 
         ascon_permutation(S, b)
-
     # last block t
     block = len(p_padded) - rate
     if rate == 8:
         S[0] ^= bytes_to_int(p_padded[block:block+8])
         ciphertext += int_to_bytes(S[0], 8)[:p_lastlen]
+        #print("ciphertes", bytes_to_int(ciphertext))
     elif rate == 16:
         S[0] ^= bytes_to_int(p_padded[block:block+8])
         S[1] ^= bytes_to_int(p_padded[block+8:block+16])
@@ -196,7 +187,6 @@ def ascon_process_ciphertext(S, b, rate, ciphertext):
             S[1] = Ci[1]
 
         ascon_permutation(S, b)
-
     # last block t
     block = len(c_padded) - rate
     if rate == 8:
@@ -235,7 +225,6 @@ def ascon_finalize(S, rate, a, key):
     S[rate//8+2] ^= bytes_to_int(key[16:])
 
     ascon_permutation(S, a)
-
     S[3] ^= bytes_to_int(key[-16:-8])
     S[4] ^= bytes_to_int(key[-8:])
     tag = int_to_bytes(S[3], 8) + int_to_bytes(S[4], 8)
@@ -322,7 +311,6 @@ def demo_print(data):
     maxlen = max([len(text) for (text, val) in data])
     for text, val in data:
         print("{text}:{align} 0x{val} ({length} bytes)".format(text=text, align=((maxlen - len(text)) * " "), val=bytes_to_hex(val), length=len(val)))
-
 
 def demo_aead(variant):
     assert variant in ["Ascon-128", "Ascon-128a", "Ascon-80pq"]
