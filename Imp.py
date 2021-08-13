@@ -45,7 +45,7 @@ def enc(K,N,A,P):
 
     #Processing Associated data
     Asplit = []
-    if A != 0:
+    if A != 0 and A!=b'':
         count = 0 #computing number of 0s to append
         temp = len(A)*8
         while temp > 0:
@@ -65,33 +65,37 @@ def enc(K,N,A,P):
             sr,sc = s_split(s,r)
             s = perm(((sr^Asplit[i])<<(320-r))^sc,b)
     s = s ^ 1
-
     # Processing Plaintext
     count = 0  # computing number of 0s to append
+    plaintextlen = len(P)
     temp = len(P) * 8
     while temp > 0:
         temp -= r
         count += 1
     number_of_zeros = r * count - len(P) * 8
-    if number_of_zeros != 0:number_of_zeros -= 1 #if length isnt already a mult of 64
-    else: number_of_zeros = 63 #if its a mult of 64
+    if P == b'': number_of_zeros = 63
+    elif number_of_zeros != 0:
+        number_of_zeros -= 1  # if length isnt a mult of 64, -1 for the extra 1 to append
+    else:
+        number_of_zeros = 63  # if its a mult of 64
     P = int.from_bytes(P, "big")
     Psplit = []
-    temp = ((P << 1) ^ 1) << (number_of_zeros) #padded P
+    temp = ((P << 1) ^ 1) << (number_of_zeros)  # padded P
     for i in range(math.ceil(temp.bit_length() / r)):
         Psplit.insert(0, ((temp >> (i * r)) & 0xFFFFFFFFFFFFFFFF))
     Csplit = []
-    for i in range(len(Psplit)-1): #preparing all but last ciphertext, algo
+    for i in range(len(Psplit) - 1):  # preparing all but last ciphertext, algo
         sr, sc = s_split(s, r)
         sr = sr ^ Psplit[i]
         Csplit.append(sr)
-        s = s_merge(sr,sc,r)
-        s = perm(s,b)
+        s = s_merge(sr, sc, r)
+        s = perm(s, b)
     sr, sc = s_split(s, r)
-    sr = sr ^ Psplit[-1] #the last Ci
+    sr = sr ^ Psplit[-1]  # the last Ci
     s = s_merge(sr, sc, r)
-    Csplit.append(sr >> (number_of_zeros+1))
-    ciphertext = (c_merge(Csplit,r) << (r-number_of_zeros-1)) ^ Csplit[-1]
+    Csplit.append(sr >> (number_of_zeros + 1))
+    ciphertext = (c_merge(Csplit, r) << (r - number_of_zeros - 1)) ^ Csplit[-1]
+
 
     #Finalisation
     s = perm(s ^ (K << (320-r-k)),a)
@@ -100,7 +104,9 @@ def enc(K,N,A,P):
         temp += 2 ** (i)
     T = (s & temp) ^ (K & temp)
     print("Ciphertext: " + hex(ciphertext), "Tag:" + hex(T))
-    return [int_to_bytes(ciphertext), int_to_bytes(T)]
+    if len(int_to_bytes(ciphertext))!=plaintextlen: cipher = (plaintextlen - len(int_to_bytes(ciphertext)))*b'\00' + int_to_bytes(ciphertext) #adding 0s in front to match byte format
+    else: cipher =  int_to_bytes(ciphertext)
+    return [cipher, int_to_bytes(T)]
 
 
 
@@ -119,7 +125,7 @@ def dec(K,N,A,C,T):
 
     #Processing Associated data
     Asplit = []
-    if A != 0:
+    if A != 0 and A!=b'':
         count = 0 #computing number of 0s to append
         temp = len(A)*8
         while temp > 0:
@@ -140,7 +146,9 @@ def dec(K,N,A,C,T):
     s = s ^ 1
 
     # Processing Ciphertext
+    cipherlen = len(C)
     lastlen = (len(C) * 8)%64 #last ciphertext block length
+    if (int.from_bytes(C, "big") == 0) and (C!=b''): lastlen = 8 #for when its b'\x00' instead of b''
     temp = 0
     for i in range(lastlen):  # create 11111s
         temp += 2 ** (i)
@@ -158,12 +166,12 @@ def dec(K,N,A,C,T):
         s = s_merge(Csplit[i],sc,r)
         s = perm(s,b)
     sr, sc = s_split(s, r)
+
     pi = (sr>>(r-lastlen)) ^ Csplit[-1] #applying algo to last plaintext block
     Psplit.append(pi)
     sr = sr ^ (((pi << 1) ^ 1) << (64-1-lastlen))
     s = s_merge(sr,sc,r)
     plaintext = (c_merge(Psplit, r) << (lastlen)) ^ Psplit[-1] #combining Psplit list to plaintext integer
-
     #Finalisation
     s = perm(s ^ (K << (320-r-k)),a)
     temp = 0
@@ -172,7 +180,11 @@ def dec(K,N,A,C,T):
     T_new = (s & temp) ^ (K & temp)
     if T_new == int_from_bytes(T):
         print("Plaintext: "+hex(plaintext))
-        return int_to_bytes(plaintext)
+        if len(int_to_bytes(plaintext)) != cipherlen: #adding 0s in front to match byte format
+            plaintext = (cipherlen - len(int_to_bytes(plaintext))) * b'\00' + int_to_bytes(plaintext)
+        else:
+            plaintext = int_to_bytes(plaintext)
+        return plaintext
     else:
         print("Different Tag")
         return None
@@ -201,7 +213,9 @@ def demo_aead(variant,key,nonce, assoc, plain):
                 ("tag", ciphertext[-16:]),
                 ("received", receivedplaintext),
                 ])
-    return ciphertext[:-16]
+    return ciphertext[:-16], ciphertext[-16:]
+
+
 to_break = 0
 for i in range(1000):
     for j in range(10000):
@@ -213,15 +227,62 @@ for i in range(1000):
 
         plain = get_random_bytes(i)  # b"asconasconasconasconasconasconasconascon"
 
-        corr_c = demo_aead("Ascon-128", key=key, nonce=nonce, assoc=assoc, plain=plain)
+        corr_c, corr_t = demo_aead("Ascon-128", key=key, nonce=nonce, assoc=assoc, plain=plain)
         c, t = enc(K=key, N=nonce, A=assoc, P=plain)
         p = dec(K=key, N=nonce, A=assoc, C=c, T=t)
         # print(hex(int_from_bytes(ascon.ascon_decrypt(key = key, nonce = nonce, associateddata = assoc, ciphertext = c+t, variant="Ascon-128"))))
-        if (corr_c != c) or (plain != p):
+        if (corr_c != c) or (plain != p) or (int_from_bytes(corr_t) != int_from_bytes(t)):
             print("Error")
             print(p)
             print(c)
+            print("key", key)
+            print("nonce", nonce)
+            print("assoc",assoc)
+            print("plain",plain)
+            print("Causes: ")
+            print(corr_c != c)
+            print(corr_c,c)
+            print(plain != p)
+            print(plain,p)
+            print(corr_t != t)
+            print(corr_t,t)
             to_break = True
             break
-        if to_break == True: break
+    if to_break == True: break
+"""
+"""
+"""
+key = b'\xb5\xa9\xc0\xf5\xe3\x1a\xab{1\x8fOu\x148\xa7\x0f'  # zero_bytes(keysize)
+nonce = b'\xbd\\Uv?\x10\x91(\x00\xc9\x13UK\xb2\xf0\xd0'    # zero_bytes(16)
+assoc = b'.'   # b"ASCONASCONASCONASCONASCONASCON"
+plain = b'\xe1'    # b"asconasconasconasconasconasconasconascon"
 
+corr_c, corr_t = demo_aead("Ascon-128", key=key, nonce=nonce, assoc=assoc, plain=plain)
+c, t = enc(K=key, N=nonce, A=assoc, P=plain)
+p = dec(K=key, N=nonce, A=assoc, C=c, T=t)
+
+key = b":U\xb4'\xf2\x1cr\xfb\xb3\x87G\xf4\xc7.\x85\x08"  # zero_bytes(keysize)
+nonce = b'\x1a\xa53\xa1R/2u\xf8f\xcd|\xb3\xd7\xd5\xfe'   # zero_bytes(16)
+assoc = b''   # b"ASCONASCONASCONASCONASCONASCON"
+plain = b''   # b"asconasconasconasconasconasconasconascon"
+
+corr_c, corr_t = demo_aead("Ascon-128", key=key, nonce=nonce, assoc=assoc, plain=plain)
+c, t = enc(K=key, N=nonce, A=assoc, P=plain)
+p = dec(K=key, N=nonce, A=assoc, C=c, T=t)
+
+if (corr_c != c) or (plain != p) or (int_from_bytes(corr_t) != int_from_bytes(t)):
+            print("Error")
+            print(p)
+            print(c)
+            print("key", key)
+            print("nonce", nonce)
+            print("assoc",assoc)
+            print("plain",plain)
+            print("Causes: ")
+            print(corr_c != c)
+            print(corr_c,c)
+            print(plain != p)
+            print(plain,p)
+            print(corr_t != t)
+            print(corr_t,t)
+"""

@@ -110,8 +110,6 @@ def ascon_process_associated_data(S, b, rate, associateddata):
         a_padding = to_bytes([0x80] + [0 for i in range(a_zeros)])
         a_padded = associateddata + a_padding
 
-        #print("Padded A length: ",int.from_bytes(a_padded, "big").bit_length())
-
         for block in range(0, len(a_padded), rate):
             S[0] ^= bytes_to_int(a_padded[block:block+8])
             if rate == 16:
@@ -152,7 +150,6 @@ def ascon_process_plaintext(S, b, rate, plaintext):
     if rate == 8:
         S[0] ^= bytes_to_int(p_padded[block:block+8])
         ciphertext += int_to_bytes(S[0], 8)[:p_lastlen]
-        #print("ciphertes", bytes_to_int(ciphertext))
     elif rate == 16:
         S[0] ^= bytes_to_int(p_padded[block:block+8])
         S[1] ^= bytes_to_int(p_padded[block+8:block+16])
@@ -187,6 +184,7 @@ def ascon_process_ciphertext(S, b, rate, ciphertext):
             S[1] = Ci[1]
 
         ascon_permutation(S, b)
+
     # last block t
     block = len(c_padded) - rate
     if rate == 8:
