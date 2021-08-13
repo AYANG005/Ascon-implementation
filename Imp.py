@@ -217,7 +217,7 @@ def demo_aead(variant,key,nonce, assoc, plain):
 
 
 to_break = 0
-for i in range(1000):
+for i in range(21):
     for j in range(10000):
         key = get_random_bytes(16)  # zero_bytes(keysize)
 
@@ -249,40 +249,3 @@ for i in range(1000):
             to_break = True
             break
     if to_break == True: break
-"""
-"""
-"""
-key = b'\xb5\xa9\xc0\xf5\xe3\x1a\xab{1\x8fOu\x148\xa7\x0f'  # zero_bytes(keysize)
-nonce = b'\xbd\\Uv?\x10\x91(\x00\xc9\x13UK\xb2\xf0\xd0'    # zero_bytes(16)
-assoc = b'.'   # b"ASCONASCONASCONASCONASCONASCON"
-plain = b'\xe1'    # b"asconasconasconasconasconasconasconascon"
-
-corr_c, corr_t = demo_aead("Ascon-128", key=key, nonce=nonce, assoc=assoc, plain=plain)
-c, t = enc(K=key, N=nonce, A=assoc, P=plain)
-p = dec(K=key, N=nonce, A=assoc, C=c, T=t)
-
-key = b":U\xb4'\xf2\x1cr\xfb\xb3\x87G\xf4\xc7.\x85\x08"  # zero_bytes(keysize)
-nonce = b'\x1a\xa53\xa1R/2u\xf8f\xcd|\xb3\xd7\xd5\xfe'   # zero_bytes(16)
-assoc = b''   # b"ASCONASCONASCONASCONASCONASCON"
-plain = b''   # b"asconasconasconasconasconasconasconascon"
-
-corr_c, corr_t = demo_aead("Ascon-128", key=key, nonce=nonce, assoc=assoc, plain=plain)
-c, t = enc(K=key, N=nonce, A=assoc, P=plain)
-p = dec(K=key, N=nonce, A=assoc, C=c, T=t)
-
-if (corr_c != c) or (plain != p) or (int_from_bytes(corr_t) != int_from_bytes(t)):
-            print("Error")
-            print(p)
-            print(c)
-            print("key", key)
-            print("nonce", nonce)
-            print("assoc",assoc)
-            print("plain",plain)
-            print("Causes: ")
-            print(corr_c != c)
-            print(corr_c,c)
-            print(plain != p)
-            print(plain,p)
-            print(corr_t != t)
-            print(corr_t,t)
-"""
